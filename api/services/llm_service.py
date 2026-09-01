@@ -9,6 +9,8 @@ Set OPENAI_API_KEY, OPENAI_BASE_URL, and OPENAI_MODEL in your .env file.
 Settings are loaded by ``api.config.Settings``.
 """
 
+import json
+
 from openai import AsyncOpenAI
 
 from api.config import get_settings
@@ -59,7 +61,30 @@ async def analyze_journal_entry(
       4. Parse ``response.output_text`` with ``json.loads()``.
       5. Return a dict with ``entry_id``, ``sentiment``, ``summary``, ``topics``.
     """
-    raise NotImplementedError(
-        "Task 4: implement analyze_journal_entry using the openai SDK. "
-        "See tests/test_llm_service.py for the test contract."
+    if client is None:
+        client = _default_client()
+
+    prompt = f"""Analyze this journal entry and respond with JSON only, no markdown:
+
+    {entry_text}
+
+    Respond with this exact JSON structure:
+    {{
+        "sentiment": "positive" or "negative" or "neutral",
+        "summary": "brief summary of the entry",
+        "topics": ["topic1", "topic2"]
+    }}"""
+
+    response = await client.responses.create(
+        model=get_settings().openai_model,
+        input=prompt,
     )
+
+    result = json.loads(response.output_text)
+
+    return {
+        "entry_id": entry_id,
+        "sentiment": result["sentiment"],
+        "summary": result["summary"],
+        "topics": result["topics"],
+    }
